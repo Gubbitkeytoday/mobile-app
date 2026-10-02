@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode } from
 
 import { todayISO } from './dates';
 import { buildDemoData } from './demo-data';
+import type { CoachTone } from './mascot';
 import type { Subscription, Transaction } from './types';
 
 const STORAGE_KEY = 'finance-coach/state/v1';
@@ -11,22 +12,32 @@ interface State {
   ready: boolean;
   transactions: Transaction[];
   subscriptions: Subscription[];
+  tone: CoachTone;
 }
 
 type Action =
-  | { type: 'hydrate'; transactions: Transaction[]; subscriptions: Subscription[] }
+  | { type: 'hydrate'; transactions: Transaction[]; subscriptions: Subscription[]; tone?: CoachTone }
   | { type: 'addTransaction'; transaction: Transaction }
   | { type: 'deleteTransaction'; id: string }
   | { type: 'upsertSubscription'; subscription: Subscription }
   | { type: 'deleteSubscription'; id: string }
   | { type: 'logUsage'; id: string; date: string }
+  | { type: 'setTone'; tone: CoachTone }
   | { type: 'reset'; transactions: Transaction[]; subscriptions: Subscription[] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'hydrate':
+      return {
+        ready: true,
+        transactions: action.transactions,
+        subscriptions: action.subscriptions,
+        tone: action.tone ?? 'hype',
+      };
     case 'reset':
-      return { ready: true, transactions: action.transactions, subscriptions: action.subscriptions };
+      return { ...state, ready: true, transactions: action.transactions, subscriptions: action.subscriptions };
+    case 'setTone':
+      return { ...state, tone: action.tone };
     case 'addTransaction':
       return {
         ...state,
@@ -68,7 +79,12 @@ function reducer(state: State, action: Action): State {
 const StoreContext = createContext<{ state: State; dispatch: React.Dispatch<Action> } | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, { ready: false, transactions: [], subscriptions: [] });
+  const [state, dispatch] = useReducer(reducer, {
+    ready: false,
+    transactions: [],
+    subscriptions: [],
+    tone: 'hype',
+  });
 
   useEffect(() => {
     (async () => {
@@ -80,6 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             type: 'hydrate',
             transactions: saved.transactions ?? [],
             subscriptions: saved.subscriptions ?? [],
+            tone: saved.tone === 'roast' ? 'roast' : 'hype',
           });
           return;
         }
@@ -94,7 +111,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!state.ready) return;
     AsyncStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ transactions: state.transactions, subscriptions: state.subscriptions }),
+      JSON.stringify({ transactions: state.transactions, subscriptions: state.subscriptions, tone: state.tone }),
     ).catch(() => {});
   }, [state]);
 

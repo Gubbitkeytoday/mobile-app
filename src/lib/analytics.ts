@@ -2,6 +2,7 @@ import type { AuditSummary } from './audit';
 import { CATEGORIES } from './categories';
 import { monthKey, previousMonthKey } from './dates';
 import { formatTHB } from './format';
+import type { CoachTone } from './mascot';
 import type { CategoryId, CoachReport, Transaction } from './types';
 
 export interface CategoryTotal {
@@ -49,7 +50,7 @@ export function summarizeMonth(transactions: Transaction[], month: string, uptoD
 }
 
 /** Rule-based coaching used when the AI backend is not configured or unreachable. */
-export function localCoachReport(month: MonthSummary, audit: AuditSummary): CoachReport {
+export function localCoachReport(month: MonthSummary, audit: AuditSummary, tone: CoachTone = 'hype'): CoachReport {
   const insights: string[] = [];
   const actions: CoachReport['actions'] = [];
 
@@ -123,8 +124,12 @@ export function localCoachReport(month: MonthSummary, audit: AuditSummary): Coac
   return {
     headline:
       totalSaving > 0
-        ? `ประหยัดได้สูงสุด ~${formatTHB(totalSaving)}/เดือน`
-        : 'การใช้จ่ายของคุณดูสมดุลดี 👍',
+        ? tone === 'roast'
+          ? `เงิน ~${formatTHB(totalSaving)}/เดือน กำลังรั่วออกไปแบบไม่รู้ตัวนะ 🫣`
+          : `ประหยัดได้สูงสุด ~${formatTHB(totalSaving)}/เดือนเลยนะ ✨`
+        : tone === 'roast'
+          ? 'ไม่มีอะไรให้แซวเลย น่าเบื่อจัง 😏'
+          : 'การใช้จ่ายของคุณดูสมดุลดีมาก 👍',
     insights,
     actions: actions.sort((a, b) => b.estimatedMonthlySaving - a.estimatedMonthlySaving),
     source: 'local',

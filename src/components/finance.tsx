@@ -1,15 +1,17 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Card, IconBubble, Pill, ProgressBar, Row, T, type IconName } from '@/components/ui';
+import { Mascot } from '@/components/mascot';
+import { Bouncy, Card, EmojiTile, Pill, ProgressBar, Row, Sticker, T } from '@/components/ui';
 import { auditAll, type SubscriptionAudit, type UsageStatus } from '@/lib/audit';
 import { summarizeMonth } from '@/lib/analytics';
-import { CATEGORIES, SUBSCRIPTION_KINDS } from '@/lib/categories';
+import { CATEGORIES } from '@/lib/categories';
 import { formatThaiDate, monthKey, todayISO } from '@/lib/dates';
 import { formatTHB } from '@/lib/format';
 import { useStore } from '@/lib/store';
-import { space, useColors } from '@/lib/theme';
+import { serviceColor } from '@/lib/subscription-catalog';
+import { space, useColors, type Tone } from '@/lib/theme';
 import type { Transaction } from '@/lib/types';
 
 export function useAudit() {
@@ -30,65 +32,70 @@ export function useMonthSummary() {
 export function TransactionRow({ tx, onLongPress }: { tx: Transaction; onLongPress?: () => void }) {
   const cat = CATEGORIES[tx.category];
   return (
-    <Pressable onLongPress={onLongPress} disabled={!onLongPress}>
+    <Bouncy onLongPress={onLongPress} disabled={!onLongPress} scaleTo={0.98}>
       <Row style={{ paddingVertical: space.sm }}>
-        <IconBubble name={cat.icon as IconName} color={cat.color} />
+        <EmojiTile emoji={cat.emoji} bg={cat.soft} />
         <View style={{ flex: 1 }}>
-          <T numberOfLines={1} style={{ fontWeight: '600' }}>
+          <T numberOfLines={1} variant="label" style={{ fontSize: 15 }}>
             {tx.merchant}
           </T>
-          <T variant="caption" muted>
+          <T variant="caption" muted numberOfLines={1}>
             {cat.label} · {formatThaiDate(tx.date)}
-            {tx.source === 'slip' ? ' · 📷 สลิป' : ''}
+            {tx.source === 'slip' ? ' · 📸' : ''}
           </T>
         </View>
-        <T style={{ fontWeight: '700' }}>-{formatTHB(tx.amount)}</T>
+        <T variant="label" style={{ fontSize: 15 }}>
+          -{formatTHB(tx.amount)}
+        </T>
       </Row>
-    </Pressable>
+    </Bouncy>
   );
 }
 
-const STATUS_LABEL: Record<UsageStatus, { label: string; tone: 'danger' | 'warning' | 'success' | 'primary' }> = {
-  unused: { label: 'ไม่ได้ใช้', tone: 'danger' },
-  underused: { label: 'ใช้น้อย', tone: 'warning' },
-  new: { label: 'เพิ่งสมัคร', tone: 'primary' },
-  healthy: { label: 'คุ้มค่า', tone: 'success' },
+export const STATUS_META: Record<UsageStatus, { label: string; emoji: string; tone: Tone; bar: readonly [string, string] }> = {
+  unused: { label: 'หลับอยู่', emoji: '😴', tone: 'danger', bar: ['#FFB3C4', '#FF5C7A'] },
+  underused: { label: 'ใช้น้อย', emoji: '🥱', tone: 'warning', bar: ['#FFE08A', '#F5A524'] },
+  new: { label: 'เพิ่งสมัคร', emoji: '🌱', tone: 'sky', bar: ['#A9DBFF', '#5AB8FF'] },
+  healthy: { label: 'คุ้มสุดๆ', emoji: '💖', tone: 'mint', bar: ['#9BF5C9', '#2FCB95'] },
 };
 
 export function SubscriptionAuditCard({ audit }: { audit: SubscriptionAudit }) {
   const c = useColors();
   const sub = audit.subscription;
-  const status = STATUS_LABEL[audit.status];
-  const barColor = { danger: c.danger, warning: c.warning, success: c.success, primary: c.primary }[status.tone];
+  const status = STATUS_META[audit.status];
+  const asleep = audit.status === 'unused';
   return (
     <Card
       onPress={() => router.push({ pathname: '/subscription/[id]', params: { id: sub.id } })}
-      style={{ marginBottom: space.md, gap: space.md }}>
+      style={{ marginBottom: space.md, gap: space.md, opacity: asleep ? 0.92 : 1 }}>
       <Row>
-        <IconBubble name={SUBSCRIPTION_KINDS[sub.kind].icon as IconName} color={c.primary} />
+        <Sticker label={sub.name} color={serviceColor(sub.name)} />
         <View style={{ flex: 1 }}>
-          <T style={{ fontWeight: '700' }}>{sub.name}</T>
+          <T variant="heading" numberOfLines={1} style={{ fontSize: 16 }}>
+            {sub.name}
+          </T>
           <T variant="caption" muted>
             {formatTHB(sub.price)}/{sub.cycle === 'monthly' ? 'เดือน' : sub.cycle === 'yearly' ? 'ปี' : 'สัปดาห์'}
-            {' · '}ตัดเงิน {audit.daysUntilBilling === 0 ? 'วันนี้' : `อีก ${audit.daysUntilBilling} วัน`}
+            {' · '}
+            {audit.daysUntilBilling === 0 ? 'ตัดเงินวันนี้!' : `ตัดเงินอีก ${audit.daysUntilBilling} วัน`}
           </T>
         </View>
-        <Pill label={status.label} tone={status.tone} />
+        {asleep ? <Mascot mood="sleepy" size={44} animated={false} /> : <Pill label={status.label} emoji={status.emoji} tone={status.tone} />}
       </Row>
       <View style={{ gap: space.xs }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <T variant="caption" muted>
-            ใช้ {audit.usesLast30Days}/{sub.targetUsesPerMonth} ครั้ง (30 วัน)
+            ใช้ {audit.usesLast30Days}/{sub.targetUsesPerMonth} ครั้ง ใน 30 วัน
           </T>
-          <T variant="caption" muted>
+          <T variant="caption" color={asleep ? c.danger : c.textMuted}>
             {audit.costPerUse !== null
-              ? `${formatTHB(Math.round(audit.costPerUse))}/ครั้ง`
+              ? `ครั้งละ ${formatTHB(Math.round(audit.costPerUse))}`
               : audit.daysSinceLastUse !== null
-                ? `ไม่ได้ใช้ ${audit.daysSinceLastUse} วัน`
-                : 'ยังไม่เคยบันทึกการใช้'}
+                ? `หลับมา ${audit.daysSinceLastUse} วัน`
+                : 'ยังไม่เคยใช้'}
           </T>
         </Row>
-        <ProgressBar value={audit.valueScore} color={barColor} />
+        <ProgressBar value={audit.valueScore} colors={status.bar} />
       </View>
     </Card>
   );

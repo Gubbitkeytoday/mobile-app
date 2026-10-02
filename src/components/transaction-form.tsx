@@ -81,7 +81,7 @@ export function TransactionForm({
       <Chips<CategoryId>
         value={draft.category}
         onChange={(v) => set('category', v)}
-        options={CATEGORY_IDS.map((id) => ({ value: id, label: CATEGORIES[id].label }))}
+        options={CATEGORY_IDS.map((id) => ({ value: id, label: CATEGORIES[id].label, emoji: CATEGORIES[id].emoji }))}
       />
       <View style={{ height: space.md }} />
       <Field label="โน้ต (ไม่บังคับ)" value={draft.note} onChangeText={(v) => set('note', v)} />

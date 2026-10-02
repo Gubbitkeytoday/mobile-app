@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { localCoachReport, summarizeMonth } from '../analytics';
 import { auditAll, auditSubscription, detectRecurring, monthlyCost, upcomingBillingDate } from '../audit';
 import { addDays, addMonths, daysBetween, isValidISODate } from '../dates';
+import { mascotLine } from '../mascot';
 import type { Subscription, Transaction } from '../types';
 
 const TODAY = '2026-10-02';
@@ -201,5 +202,34 @@ describe('analytics', () => {
     assert.equal(cancel?.estimatedMonthlySaving, 750);
     // Only one healthy AI tool remains, so no duplicate-AI suggestion.
     assert.ok(!report.actions.some((a) => a.title.includes('ซ้ำซ้อน')));
+  });
+});
+
+describe('mascotLine', () => {
+  const month = (change: number | null, count = 3) => ({
+    month: '2026-10',
+    total: 1000,
+    count,
+    previousTotal: 800,
+    change,
+    byCategory: [],
+  });
+
+  it('falls asleep when a subscription is unused, in both tones', () => {
+    const audit = auditAll([sub({ usageLog: [] })], TODAY);
+    const hype = mascotLine(month(0), audit, 'hype');
+    const roast = mascotLine(month(0), audit, 'roast');
+    assert.equal(hype.mood, 'sleepy');
+    assert.equal(roast.mood, 'sleepy');
+    assert.notEqual(hype.message, roast.message);
+    assert.ok(hype.message.includes('Netflix'));
+  });
+
+  it('worries about overspending and celebrates saving', () => {
+    const none = auditAll([], TODAY);
+    assert.equal(mascotLine(month(0.5), none, 'hype').mood, 'worried');
+    assert.equal(mascotLine(month(-0.3), none, 'hype').mood, 'excited');
+    assert.equal(mascotLine(month(0.05), none, 'hype').mood, 'happy');
+    assert.equal(mascotLine(month(null, 0), none, 'hype').mood, 'thinking');
   });
 });

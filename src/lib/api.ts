@@ -53,6 +53,7 @@ export interface CoachRequest {
     status: string;
   }[];
   question?: string;
+  tone?: 'hype' | 'roast';
 }
 
 export async function fetchCoachReport(req: CoachRequest): Promise<CoachReport> {

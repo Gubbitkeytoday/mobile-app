@@ -106,6 +106,7 @@ export default function SubscriptionFormScreen() {
         options={(Object.keys(SUBSCRIPTION_KINDS) as SubscriptionKind[]).map((k) => ({
           value: k,
           label: SUBSCRIPTION_KINDS[k].label,
+          emoji: SUBSCRIPTION_KINDS[k].emoji,
         }))}
       />
       <View style={{ height: space.md }} />

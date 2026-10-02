@@ -1,21 +1,20 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Platform, SectionList, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Platform, ScrollView } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { TransactionRow } from '@/components/finance';
-import { Button, Chips, EmptyState, Row, T } from '@/components/ui';
+import { Button, Card, Chips, EmptyState, Row, Screen, T } from '@/components/ui';
 import { CATEGORIES, CATEGORY_IDS } from '@/lib/categories';
 import { formatThaiMonth, monthKey } from '@/lib/dates';
 import { formatTHB } from '@/lib/format';
 import { useStore } from '@/lib/store';
-import { space, useColors } from '@/lib/theme';
+import { space } from '@/lib/theme';
 import type { CategoryId, Transaction } from '@/lib/types';
 
 type Filter = 'all' | CategoryId;
 
 export default function TransactionsScreen() {
-  const c = useColors();
   const { state, dispatch } = useStore();
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -29,6 +28,7 @@ export default function TransactionsScreen() {
     return [...byMonth.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([month, data]) => ({
+        month,
         title: formatThaiMonth(month),
         total: data.reduce((s, t) => s + t.amount, 0),
         data,
@@ -48,44 +48,52 @@ export default function TransactionsScreen() {
   };
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.background }}>
-      <View style={{ padding: space.lg, gap: space.md }}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <T variant="title">รายการ</T>
-          <Button label="เพิ่ม" icon="add" onPress={() => router.push('/transaction/new')} />
-        </Row>
+    <Screen>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <T variant="title">รายการ</T>
+        <Button label="จดเอง" icon="pencil" size="sm" onPress={() => router.push('/transaction/new')} />
+      </Row>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginHorizontal: -20, marginTop: space.md }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: space.sm }}>
         <Chips<Filter>
           value={filter}
           onChange={setFilter}
           options={[
-            { value: 'all', label: 'ทั้งหมด' },
-            ...CATEGORY_IDS.map((id) => ({ value: id, label: CATEGORIES[id].label })),
+            { value: 'all', label: 'ทั้งหมด', emoji: '🌈' },
+            ...CATEGORY_IDS.map((id) => ({ value: id, label: CATEGORIES[id].label, emoji: CATEGORIES[id].emoji })),
           ]}
         />
-      </View>
-      <SectionList
-        sections={sections}
-        keyExtractor={(t) => t.id}
-        contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: 48 }}
-        stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <Row style={{ justifyContent: 'space-between', marginTop: space.lg, marginBottom: space.xs }}>
+      </ScrollView>
+
+      {sections.length === 0 && (
+        <EmptyState title="ยังไม่มีรายการ" hint="สแกนสลิปหรือจดรายจ่ายเองได้เลย น้องตังค์รออยู่!" />
+      )}
+
+      {sections.map((section, i) => (
+        <Animated.View key={section.month} entering={FadeInDown.delay(i * 60).duration(400)}>
+          <Row style={{ justifyContent: 'space-between', marginTop: space.xl, marginBottom: space.sm }}>
             <T variant="heading">{section.title}</T>
-            <T muted>{formatTHB(section.total)}</T>
-          </Row>
-        )}
-        renderItem={({ item }) => <TransactionRow tx={item} onLongPress={() => confirmDelete(item)} />}
-        ListEmptyComponent={
-          <EmptyState icon="receipt-outline" title="ยังไม่มีรายการ" hint="สแกนสลิปหรือเพิ่มรายจ่ายเองได้เลย" />
-        }
-        ListFooterComponent={
-          sections.length ? (
-            <T variant="caption" muted style={{ textAlign: 'center', marginTop: space.lg }}>
-              กดค้างที่รายการเพื่อลบ
+            <T variant="label" muted>
+              {formatTHB(section.total)}
             </T>
-          ) : null
-        }
-      />
-    </SafeAreaView>
+          </Row>
+          <Card style={{ paddingVertical: space.sm }}>
+            {section.data.map((tx) => (
+              <TransactionRow key={tx.id} tx={tx} onLongPress={() => confirmDelete(tx)} />
+            ))}
+          </Card>
+        </Animated.View>
+      ))}
+
+      {sections.length > 0 && (
+        <T variant="caption" muted style={{ textAlign: 'center', marginTop: space.lg }}>
+          กดค้างที่รายการเพื่อลบ
+        </T>
+      )}
+    </Screen>
   );
 }

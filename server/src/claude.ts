@@ -94,6 +94,7 @@ export const CoachInputSchema = z.object({
     )
     .max(50),
   question: z.string().max(500).optional(),
+  tone: z.enum(['hype', 'roast']).optional(),
 });
 
 export type CoachInput = z.infer<typeof CoachInputSchema>;
@@ -121,7 +122,11 @@ You receive one month's spending totals by category and a usage audit of the use
 Give advice that is specific to these numbers: name the subscriptions to cancel, downgrade, share (family plans) or consolidate (e.g. overlapping AI tools), and realistic category budgets. Savings estimates must be derivable from the data — don't invent figures. Don't give investment or tax advice. If the user asks a question, answer it within the headline/insights/actions.`;
 
 export async function coach(input: CoachInput): Promise<CoachResult> {
-  const { question, ...data } = input;
+  const { question, tone, ...data } = input;
+  const toneNote =
+    tone === 'roast'
+      ? '\n\nโหมดแซว: พูดแบบเพื่อนสนิทที่แซวขำๆ ตรงๆ จิกนิดๆ แต่ไม่หยาบคายหรือทำให้รู้สึกแย่'
+      : '\n\nโหมดเชียร์: พูดแบบให้กำลังใจ อบอุ่น ชมเมื่อทำได้ดี';
   const response = await client.beta.messages.parse({
     model: MODEL,
     max_tokens: 8000,
@@ -132,7 +137,7 @@ export async function coach(input: CoachInput): Promise<CoachResult> {
     messages: [
       {
         role: 'user',
-        content: `<data>\n${JSON.stringify(data, null, 2)}\n</data>${question ? `\n\nคำถามจากผู้ใช้: ${question}` : ''}`,
+        content: `<data>\n${JSON.stringify(data, null, 2)}\n</data>${toneNote}${question ? `\n\nคำถามจากผู้ใช้: ${question}` : ''}`,
       },
     ],
   });

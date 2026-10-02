@@ -2,11 +2,14 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
+import { Mascot } from '@/components/mascot';
 import { TransactionForm, emptyDraft, type TransactionDraft } from '@/components/transaction-form';
 import { Button, Card, Pill, Row, Screen, T } from '@/components/ui';
 import { ApiError, isApiConfigured, scanSlip } from '@/lib/api';
+import { formatTHB } from '@/lib/format';
 import { matchCatalog } from '@/lib/subscription-catalog';
 import { useStore } from '@/lib/store';
 import { radius, space, useColors } from '@/lib/theme';
@@ -81,19 +84,22 @@ export default function ScanScreen() {
       state.subscriptions.some((s) => s.name.toLowerCase() === phase.subscriptionName!.toLowerCase());
     return (
       <Screen>
-        <Card tone="success" style={{ gap: space.sm }}>
-          <T variant="heading">✅ บันทึกแล้ว</T>
-          <T muted>รายการถูกเพิ่มและจัดหมวดหมู่เรียบร้อย</T>
-        </Card>
+        <Animated.View entering={ZoomIn.springify()} style={{ alignItems: 'center', gap: space.sm, marginTop: space.lg }}>
+          <Mascot mood="excited" size={140} />
+          <T variant="title">บันทึกแล้ว! 🎉</T>
+          <T muted style={{ textAlign: 'center' }}>
+            -{formatTHB(phase.amount)} ถูกจัดหมวดหมู่เรียบร้อย
+          </T>
+        </Animated.View>
         {phase.subscriptionName && !alreadyTracked && (
-          <Card tone="primary" style={{ marginTop: space.lg, gap: space.md }}>
+          <Card tone="primary" style={{ marginTop: space.xl, gap: space.md }}>
             <T>
-              ดูเหมือนเป็นค่าซับสคริปชัน <T style={{ fontWeight: '700' }}>{phase.subscriptionName}</T>{' '}
-              ต้องการให้ช่วยติดตามการใช้งานและเตือนก่อนตัดเงินไหม?
+              อันนี้เหมือนค่าสมาชิก <T variant="label">{phase.subscriptionName}</T> นะ ให้น้องตังค์ช่วยดูว่าใช้คุ้มไหม
+              และเตือนก่อนตัดเงินดีไหม? 👀
             </T>
             <Button
-              label="ติดตามซับสคริปชันนี้"
-              icon="repeat"
+              label="ติดตามเลย"
+              icon="albums"
               onPress={() => {
                 router.push({
                   pathname: '/subscription/new',
@@ -117,19 +123,35 @@ export default function ScanScreen() {
 
   return (
     <Screen>
-      <T variant="title">สแกนสลิป</T>
+      <T variant="title">สแกนสลิป 📸</T>
       <T muted style={{ marginBottom: space.lg }}>
-        ถ่ายรูปหรือเลือกสลิปโอนเงิน/ใบเสร็จ AI จะอ่านยอดเงิน ร้านค้า วันที่ และจัดหมวดหมู่ให้อัตโนมัติ
+        ไม่ต้องพิมพ์เองแล้ว ถ่ายสลิปมา เดี๋ยว AI อ่านยอด ร้านค้า วันที่ แล้วจัดหมวดให้เลย
       </T>
 
       {phase.step === 'idle' && (
-        <View style={{ gap: space.md }}>
+        <View style={{ gap: space.lg }}>
+          <Card gradient={['#ECE6FF', '#FFE3EF']} lifted style={{ alignItems: 'center', paddingVertical: space.xxl }}>
+            <View style={styles.viewfinder}>
+              {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
+                <View key={corner} style={[styles.corner, styles[corner], { borderColor: c.primary }]} />
+              ))}
+              <Mascot mood="thinking" size={110} />
+            </View>
+            <T variant="label" style={{ marginTop: space.md, color: '#2B2140' }}>
+              วางสลิปให้อยู่ในกรอบ แล้วถ่ายเลย!
+            </T>
+          </Card>
           <Button label="ถ่ายรูปสลิป" icon="camera" onPress={() => pick(true)} />
           <Button label="เลือกจากคลังภาพ" icon="images" variant="secondary" onPress={() => pick(false)} />
+          <Row style={{ flexWrap: 'wrap', gap: space.sm, justifyContent: 'center' }}>
+            {['K PLUS', 'SCB EASY', 'Krungthai NEXT', 'PromptPay', 'ใบเสร็จร้านค้า'].map((b) => (
+              <Pill key={b} tone="primary" label={b} />
+            ))}
+          </Row>
           {!isApiConfigured() && (
-            <Card tone="warning">
+            <Card tone="lemon">
               <T variant="caption">
-                โหมดออฟไลน์: ยังไม่ได้ตั้งค่า EXPO_PUBLIC_API_URL จึงต้องกรอกข้อมูลเอง (ดู README)
+                🔌 โหมดออฟไลน์: ยังไม่ได้เชื่อมเซิร์ฟเวอร์ AI (EXPO_PUBLIC_API_URL) เลยต้องกรอกข้อมูลเองก่อนนะ (ดู README)
               </T>
             </Card>
           )}
@@ -140,14 +162,16 @@ export default function ScanScreen() {
         <Image
           source={{ uri: phase.uri }}
           contentFit="contain"
-          style={{ height: 260, borderRadius: radius.md, backgroundColor: c.cardMuted, marginBottom: space.lg }}
+          style={{ height: 260, borderRadius: radius.lg, backgroundColor: c.cardMuted, marginBottom: space.lg }}
         />
       )}
 
       {phase.step === 'scanning' && (
         <Row style={{ justifyContent: 'center', padding: space.lg }}>
-          <ActivityIndicator color={c.primary} />
-          <T muted>AI กำลังอ่านสลิป…</T>
+          <Mascot mood="thinking" size={70} />
+          <T variant="label" muted>
+            น้องตังค์กำลังอ่านสลิป…
+          </T>
         </Row>
       )}
 
@@ -162,7 +186,8 @@ export default function ScanScreen() {
             <Row style={{ marginBottom: space.md }}>
               <Pill
                 label={`ความมั่นใจ: ${{ high: 'สูง', medium: 'กลาง', low: 'ต่ำ' }[phase.result.confidence]}`}
-                tone={phase.result.confidence === 'high' ? 'success' : 'warning'}
+                tone={phase.result.confidence === 'high' ? 'mint' : 'warning'}
+                emoji={phase.result.confidence === 'high' ? '✨' : '🤔'}
               />
               <T variant="caption" muted>
                 ตรวจสอบก่อนบันทึก
@@ -197,3 +222,12 @@ export default function ScanScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  viewfinder: { width: 200, height: 170, alignItems: 'center', justifyContent: 'center' },
+  corner: { position: 'absolute', width: 34, height: 34, borderWidth: 5 },
+  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 18 },
+  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 18 },
+  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 18 },
+  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 18 },
+});
